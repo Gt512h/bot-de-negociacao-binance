@@ -1,0 +1,81 @@
+import numpy as np
+import pandas as pd
+import requests
+
+# Configura as credenciais da API
+API_KEY = "YOUR_API_KEY"
+API_SECRET = "YOUR_API_SECRET"
+
+# Cria a URL da API
+URL = "https://api.binance.com/api/v3/klines"
+
+# Define os parâmetros da API
+PARAMS = {
+    "symbol": "BTCUSDT",
+    "interval": "30m",
+    "startTime": "1538463200000",
+    "endTime": "1650374400000",
+}
+
+# Faz a solicitação HTTP
+RESPONSE = requests.get(URL, params=PARAMS, headers={"X-MBX-APIKEY": API_KEY})
+
+# Verifica se a solicitação foi bem-sucedida
+if RESPONSE.status_code != 200:
+    raise Exception("Erro ao fazer a solicitação HTTP")
+
+# Decodifica a resposta
+DATA = RESPONSE.json()
+
+# Converte os dados em um DataFrame
+df = pd.DataFrame(DATA)
+
+# Cria o modelo
+modelo = Sequential()
+modelo.add(Dense(500, activation="sigmoid", input_shape=(1,)))
+modelo.add(Dense(1))
+
+# Treina o modelo
+modelo.compile(optimizer=tf.keras.optimizers.RMSprop(learning_rate=0.0001), loss=tf.keras.losses.MeanSquaredError())
+modelo.fit(df[["Close"]], df[["Close"]], epochs=10000)
+
+# Cria o robô
+class Robô:
+    def __init__(self, saldo, drawndown):
+        self.saldo = saldo
+        self.ativos = 0
+        self.drawndown = drawndown
+        self.quantidade = saldo / df.loc[0, "Close"]
+
+    def comprar(self, quantidade, preço):
+        self.saldo -= quantidade * preço
+        self.ativos += quantidade
+
+    def vender(self, quantidade, preço):
+        self.saldo += quantidade * preço
+        self.ativos -= quantidade
+
+    def calcular_drawdown(self):
+        return (self.saldo - self.saldo_máximo) / self.saldo_máximo
+
+    def atualizar_saldo_máximo(self):
+        self.saldo_máximo = max(self.saldo_máximo, self.saldo)
+
+# Obtém as previsões do modelo
+previsões = modelo.predict(df[["Close"]])
+
+# Cria o robô
+robô = Robô(100, 0.15)
+
+# Aplica as previsões do modelo ao robô
+for i in range(len(df)):
+    previsão = previsões[i][0]
+    preço = df.loc[i, "Close"]
+    if previsão > 0.5:
+        robô.comprar(robô.quantidade, preço)
+    elif previsão < 0.5:
+        robô.vender(robô.quantidade, preço)
+    robô.atualizar_saldo_máximo()
+
+# Imprime o saldo do robô
+print(robô.saldo)
